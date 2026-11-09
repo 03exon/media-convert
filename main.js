@@ -1,185 +1,155 @@
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
+import "./style.css";
 
-const fileInput = document.querySelector("#file-input");
-const dropZone = document.querySelector("#drop-zone");
-const selectedFileBox = document.querySelector("#selected-file");
-const fileName = document.querySelector("#file-name");
-const fileSize = document.querySelector("#file-size");
+const input = document.querySelector("#file-input");
+const dropzone = document.querySelector("#dropzone");
+const selectedPanel = document.querySelector("#selected-file");
+const selectedName = document.querySelector("#selected-name");
+const selectedSize = document.querySelector("#selected-size");
+const removeButton = document.querySelector("#remove-file");
 const formatSelect = document.querySelector("#format-select");
 const convertButton = document.querySelector("#convert-button");
-const removeButton = document.querySelector("#remove-file");
+const buttonLabel = document.querySelector("#button-label");
 const progressArea = document.querySelector("#progress-area");
-const progressFill = document.querySelector("#progress-fill");
+const progressLabel = document.querySelector("#progress-label");
 const progressPercent = document.querySelector("#progress-percent");
-const statusText = document.querySelector("#status-text");
-const resultArea = document.querySelector("#result-area");
+const progressFill = document.querySelector("#progress-fill");
+const result = document.querySelector("#result");
 const resultName = document.querySelector("#result-name");
 const downloadLink = document.querySelector("#download-link");
-const errorMessage = document.querySelector("#error-message");
+const fileTitle = document.querySelector("#file-title");
+const fileSubtitle = document.querySelector("#file-subtitle");
 
 let selectedFile = null;
 let ffmpeg = null;
-let ffmpegLoaded = false;
-let resultUrl = null;
+let isConverting = false;
+let outputUrl = null;
 
-document.querySelector("#year").textContent = new Date().getFullYear();
-
-function formatBytes(bytes) {
+const formatBytes = (bytes) => {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
+};
 
-function safeBaseName(name) {
-  return name.replace(/\.[^/.]+$/, "").replace(/[^\w-]+/g, "-").replace(/-+/g, "-").slice(0, 70) || "converted-file";
-}
-
-function isVideo(file) {
-  const ext = file.name.split(".").pop().toLowerCase();
-  return file.type.startsWith("video/") || ["mp4", "mov", "mkv", "webm", "avi", "m4v"].includes(ext);
-}
-
-function showError(message) {
-  errorMessage.textContent = message;
-  errorMessage.classList.remove("hidden");
+function setProgress(value, label) {
+  const safe = Math.max(0, Math.min(100, Math.round(value)));
+  progressFill.style.width = `${safe}%`;
+  progressPercent.textContent = `${safe}%`;
+  if (label) progressLabel.textContent = label;
 }
 
 function clearResult() {
-  resultArea.classList.add("hidden");
-  if (resultUrl) URL.revokeObjectURL(resultUrl);
-  resultUrl = null;
+  result.hidden = true;
+  if (outputUrl) URL.revokeObjectURL(outputUrl);
+  outputUrl = null;
   downloadLink.removeAttribute("href");
 }
 
-function setFile(file) {
-  errorMessage.classList.add("hidden");
-  clearResult();
+function chooseFile(file) {
   if (!file) return;
   if (file.size > 100 * 1024 * 1024) {
-    showError("This starter version limits files to 100 MB. On iPhone, smaller files (under 50 MB) are recommended because conversion uses device memory.");
+    alert("This file is larger than 100 MB. Please choose a smaller file.");
+    return;
+  }
+  if (!file.type.startsWith("audio/") && !file.type.startsWith("video/")) {
+    alert("Please choose an audio or video file.");
     return;
   }
   selectedFile = file;
-  fileName.textContent = file.name;
-  fileSize.textContent = formatBytes(file.size);
-  selectedFileBox.classList.remove("hidden");
-  formatSelect.disabled = false;
-  formatSelect.value = isVideo(file) ? "mp3" : "mp3";
-  formatSelect.querySelector('option[value="mp4"]').disabled = !isVideo(file);
+  clearResult();
+  selectedName.textContent = file.name;
+  selectedSize.textContent = formatBytes(file.size);
+  selectedPanel.hidden = false;
+  dropzone.style.display = "none";
   convertButton.disabled = false;
+  buttonLabel.textContent = "Convert file";
+  const kind = file.type.startsWith("video/") ? "video" : "audio";
+  [...formatSelect.options].forEach(option => {
+    option.disabled = option.value === "mp4" && kind === "audio";
+  });
+  if (kind === "audio" && formatSelect.value === "mp4") formatSelect.value = "mp3";
 }
 
 function resetFile() {
   selectedFile = null;
-  fileInput.value = "";
-  selectedFileBox.classList.add("hidden");
-  formatSelect.disabled = true;
+  input.value = "";
+  selectedPanel.hidden = true;
+  dropzone.style.display = "flex";
   convertButton.disabled = true;
-  progressArea.classList.add("hidden");
-  errorMessage.classList.add("hidden");
+  buttonLabel.textContent = "Choose a file to begin";
+  progressArea.hidden = true;
   clearResult();
 }
 
-fileInput.addEventListener("change", () => setFile(fileInput.files?.[0]));
-
+input.addEventListener("change", (event) => chooseFile(event.target.files[0]));
 removeButton.addEventListener("click", resetFile);
 
-for (const eventName of ["dragenter", "dragover"]) {
-  dropZone.addEventListener(eventName, (event) => {
-    event.preventDefault();
-    dropZone.classList.add("drag-over");
-  });
-}
-for (const eventName of ["dragleave", "drop"]) {
-  dropZone.addEventListener(eventName, (event) => {
-    event.preventDefault();
-    dropZone.classList.remove("drag-over");
-  });
-}
-dropZone.addEventListener("drop", (event) => setFile(event.dataTransfer?.files?.[0]));
+["dragenter", "dragover"].forEach(type => dropzone.addEventListener(type, event => {
+  event.preventDefault();
+  dropzone.classList.add("dragover");
+}));
+["dragleave", "drop"].forEach(type => dropzone.addEventListener(type, event => {
+  event.preventDefault();
+  dropzone.classList.remove("dragover");
+}));
+dropzone.addEventListener("drop", event => chooseFile(event.dataTransfer.files[0]));
 
-async function loadConverter() {
-  if (ffmpegLoaded) return;
-  statusText.textContent = "Loading converter engine (first use is about 30 MB)…";
-  progressFill.style.width = "8%";
-  progressPercent.textContent = "Loading";
+formatSelect.addEventListener("change", () => {
+  document.querySelector("#quality-value").innerHTML = formatSelect.value === "wav"
+    ? 'Uncompressed <span>●</span>' : 'High quality <span>●</span>';
+  clearResult();
+});
+
+async function getFFmpeg() {
+  if (ffmpeg) return ffmpeg;
   ffmpeg = new FFmpeg();
-  ffmpeg.on("log", ({ message }) => {
-    if (message) statusText.textContent = message.slice(0, 100);
-  });
-  ffmpeg.on("progress", ({ progress }) => {
-    if (Number.isFinite(progress)) {
-      const percent = Math.max(8, Math.min(95, Math.round(progress * 100)));
-      progressFill.style.width = `${percent}%`;
-      progressPercent.textContent = `${percent}%`;
-    }
-  });
-
-  const baseURL = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm";
+  ffmpeg.on("progress", ({ progress }) => setProgress(progress * 100, "Converting your file…"));
+  const baseURL = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd";
+  setProgress(5, "Loading conversion engine…");
   await ffmpeg.load({
     coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm")
   });
-  ffmpegLoaded = true;
+  return ffmpeg;
 }
 
 convertButton.addEventListener("click", async () => {
-  if (!selectedFile) return;
-  const outputFormat = formatSelect.value;
-  if (outputFormat === "mp4" && !isVideo(selectedFile)) {
-    showError("MP4 video output needs a video input file. Choose a video file or select MP3/WAV.");
-    return;
-  }
-
-  errorMessage.classList.add("hidden");
-  clearResult();
-  progressArea.classList.remove("hidden");
+  if (!selectedFile || isConverting) return;
+  isConverting = true;
   convertButton.disabled = true;
-  formatSelect.disabled = true;
-  progressFill.style.width = "3%";
-  progressPercent.textContent = "Starting";
-  statusText.textContent = "Preparing conversion…";
-
-  const inputExtension = selectedFile.name.split(".").pop().toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
-  const inputName = `input.${inputExtension}`;
-  const outputName = `${safeBaseName(selectedFile.name)}.${outputFormat}`;
-
+  progressArea.hidden = false;
+  clearResult();
+  buttonLabel.textContent = "Converting…";
+  setProgress(2, "Preparing your file…");
+  let ff;
   try {
-    await loadConverter();
-    statusText.textContent = "Reading your file…";
-    progressFill.style.width = "12%";
-    await ffmpeg.writeFile(inputName, await fetchFile(selectedFile));
-
+    ff = await getFFmpeg();
+    const ext = selectedFile.name.includes(".") ? selectedFile.name.split(".").pop().toLowerCase() : "bin";
+    const inputName = `source.${ext.replace(/[^a-z0-9]/g, "") || "bin"}`;
+    const outputFormat = formatSelect.value;
+    const outputName = `converted.${outputFormat}`;
+    await ff.writeFile(inputName, await fetchFile(selectedFile));
     let args;
-    if (outputFormat === "mp3") {
-      args = ["-i", inputName, "-vn", "-c:a", "libmp3lame", "-b:a", "192k", outputName];
-    } else if (outputFormat === "wav") {
-      args = ["-i", inputName, "-vn", "-c:a", "pcm_s16le", outputName];
-    } else {
-      args = ["-i", inputName, "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", outputName];
-    }
-
-    statusText.textContent = "Converting… Keep this tab open.";
-    const exitCode = await ffmpeg.exec(args);
-    if (exitCode !== 0) throw new Error("The converter could not process this file or the requested codec is unavailable.");
-
-    const data = await ffmpeg.readFile(outputName);
+    if (outputFormat === "mp3") args = ["-i", inputName, "-vn", "-codec:a", "libmp3lame", "-q:a", "2", outputName];
+    else if (outputFormat === "wav") args = ["-i", inputName, "-vn", "-acodec", "pcm_s16le", outputName];
+    else args = ["-i", inputName, "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", "-movflags", "+faststart", outputName];
+    await ff.exec(args);
+    const data = await ff.readFile(outputName);
     const mime = outputFormat === "mp3" ? "audio/mpeg" : outputFormat === "wav" ? "audio/wav" : "video/mp4";
-    resultUrl = URL.createObjectURL(new Blob([data], { type: mime }));
-    downloadLink.href = resultUrl;
+    outputUrl = URL.createObjectURL(new Blob([data.buffer], { type: mime }));
+    downloadLink.href = outputUrl;
     downloadLink.download = outputName;
     resultName.textContent = outputName;
-    resultArea.classList.remove("hidden");
-    progressFill.style.width = "100%";
-    progressPercent.textContent = "Done";
-    statusText.textContent = "Conversion complete";
+    result.hidden = false;
+    setProgress(100, "Conversion complete");
+    buttonLabel.textContent = "Convert another file";
   } catch (error) {
     console.error(error);
-    showError(`Conversion failed: ${error?.message || "Unknown error"}. Try a smaller file or a different output format. Keep in mind that some codecs and unusual files may not be supported.`);
-    progressArea.classList.add("hidden");
+    setProgress(0, "Conversion failed");
+    alert("Sorry, conversion failed. Try a smaller file or a different format. Some formats may not be supported by the browser engine.");
+    buttonLabel.textContent = "Try again";
   } finally {
-    convertButton.disabled = false;
-    formatSelect.disabled = false;
-    try { await ffmpeg?.deleteFile(inputName); } catch {}
+    isConverting = false;
+    convertButton.disabled = !selectedFile;
   }
 });

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#17191c" />
+  <meta name="description" content="Convert your media files privately in your browser. Free MP3, WAV and MP4 conversion." />
+  <title>Media Convert — Your files. Your formats.</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Media Convert home">
+        <span class="brand-mark"><span></span><span></span><span></span></span>
+        <span>media<span class="brand-light">convert</span></span>
+      </a>
+      <div class="topbar-right"><span class="status-dot"></span><span>Private browser conversion</span></div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="eyebrow"><span class="eyebrow-line"></span> SIMPLE. PRIVATE. FREE.</div>
+        <h1>Your files.<br /><span>Your formats.</span></h1>
+        <p class="hero-copy">Convert audio and video without the hassle. Your files stay on your device — no account, no uploads, no nonsense.</p>
+      </section>
+
+      <section class="converter-card" aria-label="File converter">
+        <div class="card-topline"><span class="step-label">01 <i> / SELECT FILE</i></span><span class="format-note">MP3 · WAV · MP4</span></div>
+        <label class="dropzone" id="dropzone" for="file-input">
+          <input id="file-input" type="file" accept="audio/*,video/*" />
+          <span class="upload-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 16.5v2A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5v-2"/></svg></span>
+          <strong id="file-title">Drop your file here</strong>
+          <span class="drop-subtitle" id="file-subtitle">or <em>browse files</em> from your device</span>
+          <span class="file-limit">AUDIO & VIDEO · MAX 100 MB</span>
+        </label>
+
+        <div class="selected-file" id="selected-file" hidden>
+          <div class="file-symbol">FILE</div>
+          <div class="file-meta"><strong id="selected-name"></strong><span id="selected-size"></span></div>
+          <button class="remove-file" id="remove-file" type="button" aria-label="Remove selected file">×</button>
+        </div>
+
+        <div class="options-row">
+          <div class="option-block">
+            <label for="format-select">02 <span>OUTPUT FORMAT</span></label>
+            <div class="select-wrap"><select id="format-select"><option value="mp3">MP3 Audio</option><option value="wav">WAV Audio</option><option value="mp4">MP4 Video</option></select><span class="select-chevron">⌄</span></div>
+          </div>
+          <div class="option-block">
+            <label>03 <span>QUALITY</span></label>
+            <div class="quality-value" id="quality-value">High quality <span>●</span></div>
+          </div>
+        </div>
+
+        <button class="convert-button" id="convert-button" type="button" disabled><span id="button-label">Choose a file to begin</span><span class="button-arrow">↗</span></button>
+        <div class="progress-area" id="progress-area" hidden>
+          <div class="progress-copy"><span id="progress-label">Preparing converter…</span><span id="progress-percent">0%</span></div>
+          <div class="progress-track"><div id="progress-fill"></div></div>
+        </div>
+        <div class="result" id="result" hidden>
+          <div><strong>Your file is ready.</strong><span id="result-name"></span></div>
+          <a id="download-link" class="download-button" download>Download <span>↓</span></a>
+        </div>
+        <p class="privacy-note"><span>◈</span> Files are processed locally in your browser and are not uploaded to our servers.</p>
+      </section>
+
+      <section class="features">
+        <div class="feature"><span class="feature-number">01</span><div><strong>Your files stay yours</strong><p>Conversion happens on your device. We don't store your files.</p></div></div>
+        <div class="feature"><span class="feature-number">02</span><div><strong>No account needed</strong><p>Open the page, choose a file and get started. That's it.</p></div></div>
+        <div class="feature"><span class="feature-number">03</span><div><strong>Free to use</strong><p>Simple tools for everyday audio and video conversions.</p></div></div>
+      </section>
+    </main>
+    <footer><a class="brand footer-brand" href="#"><span class="brand-mark"><span></span><span></span><span></span></span><span>media<span class="brand-light">convert</span></span></a><span>ONLY CONVERT FILES YOU OWN OR HAVE PERMISSION TO USE.</span><span>© 2026 MEDIA CONVERT</span></footer>
+  </div>
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
